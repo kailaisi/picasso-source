@@ -10,7 +10,7 @@ buildscript {
   ]
 
   ext.deps = [
-    androidPlugin: 'com.android.tools.build:gradle:3.0.1',
+    androidPlugin: 'com.android.tools.build:gradle:3.1.1',
     okhttp: "com.squareup.okhttp3:okhttp:${versions.okhttp}",
     mockWebServer: "com.squareup.okhttp3:mockwebserver:${versions.okhttp}",
     pollexor: 'com.squareup:pollexor:2.0.4',
@@ -27,8 +27,10 @@ buildscript {
   ext.isCi = "true" == System.getenv('CI')
 
   repositories {
-    jcenter()
+    mavenLocal()
     google()
+    maven{url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+    jcenter()
   }
 
   dependencies {
@@ -38,8 +40,10 @@ buildscript {
 
 subprojects {
   repositories {
-    jcenter()
+    mavenLocal()
     google()
+    maven{url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+    jcenter()
   }
 
   tasks.withType(Test) {

@@ -484,17 +484,19 @@ public class Picasso {
     targetToDeferredRequestCreator.put(view, request);
   }
 
+  //将请求入队并进行执行
   void enqueueAndSubmit(Action action) {
     Object target = action.getTarget();
     if (target != null && targetToAction.get(target) != action) {
       // This will also check we are on the main thread.
       cancelExistingRequest(target);
-      targetToAction.put(target, action);
+      targetToAction.put(target, action);//将action放到targetToAction中
     }
     submit(action);
   }
 
   void submit(Action action) {
+    //调度分发
     dispatcher.dispatchSubmit(action);
   }
 
@@ -509,6 +511,8 @@ public class Picasso {
   }
 
   void complete(BitmapHunter hunter) {
+    //在submit的时候，BitmapHunter会根据key值，将多个相同key的请求合并处理，BitmapHunter里面保存了请求的所有的Action信息
+    //在hunter中action是保存的第一个Action信息，Actions是保存的除了第一个之外所有的信息。
     Action single = hunter.getAction();
     List<Action> joined = hunter.getActions();
 
@@ -523,11 +527,11 @@ public class Picasso {
     Exception exception = hunter.getException();
     Bitmap result = hunter.getResult();
     LoadedFrom from = hunter.getLoadedFrom();
-
+    //如果有多个请求action，则进行分发处理
     if (single != null) {
       deliverAction(result, from, single, exception);
     }
-
+    //遍历分发处理剩下的请求action信息
     if (hasMultiple) {
       //noinspection ForLoopReplaceableByForEach
       for (int i = 0, n = joined.size(); i < n; i++) {
@@ -573,6 +577,7 @@ public class Picasso {
       if (from == null) {
         throw new AssertionError("LoadedFrom cannot be null.");
       }
+      //关键的处理，执行完成结果
       action.complete(result, from);
       if (loggingEnabled) {
         log(OWNER_MAIN, VERB_COMPLETED, action.request.logId(), "from " + from);
@@ -723,7 +728,8 @@ public class Picasso {
     public Builder(@NonNull Context context) {
       if (context == null) {
         throw new IllegalArgumentException("Context must not be null.");
-      }
+      }//默认使用的Context是ApplicationContext，所以其生命周期适合应用的生命周期绑定的
+      //此方式主要是为了避免context和单例模式的生命周期不同而造成内存泄漏的问题
       this.context = context.getApplicationContext();
     }
 
@@ -841,28 +847,29 @@ public class Picasso {
     }
 
     /** Create the {@link Picasso} instance. */
+    //生成单例
     public Picasso build() {
       Context context = this.context;
-
+      //图片下载器
       if (downloader == null) {
         downloader = new OkHttp3Downloader(context);
-      }
+      }//缓存策略
       if (cache == null) {
         cache = new LruCache(context);
-      }
+      }//线程池
       if (service == null) {
         service = new PicassoExecutorService();
       }
-      if (transformer == null) {
+      if (transformer == null) {//使用标准的请求转换器
         transformer = RequestTransformer.IDENTITY;
       }
-
+      //
       Stats stats = new Stats(cache);
-
+      //分发器
       Dispatcher dispatcher = new Dispatcher(context, service, HANDLER, downloader, cache, stats);
 
       return new Picasso(context, dispatcher, cache, listener, transformer, requestHandlers, stats,
-          defaultBitmapConfig, indicatorsEnabled, loggingEnabled);
+              defaultBitmapConfig, indicatorsEnabled, loggingEnabled);
     }
   }
 

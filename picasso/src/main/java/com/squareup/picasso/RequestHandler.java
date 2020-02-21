@@ -44,6 +44,11 @@ import static com.squareup.picasso.Utils.checkNotNull;
  */
 public abstract class RequestHandler {
   /**
+   * Whether or not this {@link RequestHandler} can handle a request with the given {@link Request}.
+   */
+  public abstract boolean canHandleRequest(Request data);
+
+  /**
    * {@link Result} represents the result of a {@link #load(Request, int)} call in a
    * {@link RequestHandler}.
    *
@@ -65,10 +70,10 @@ public abstract class RequestHandler {
     }
 
     Result(
-        @Nullable Bitmap bitmap,
-        @Nullable Source source,
-        @NonNull Picasso.LoadedFrom loadedFrom,
-        int exifOrientation) {
+            @Nullable Bitmap bitmap,
+            @Nullable Source source,
+            @NonNull Picasso.LoadedFrom loadedFrom,
+            int exifOrientation) {
       if ((bitmap != null) == (source != null)) {
         throw new AssertionError();
       }
@@ -104,11 +109,6 @@ public abstract class RequestHandler {
       return exifOrientation;
     }
   }
-
-  /**
-   * Whether or not this {@link RequestHandler} can handle a request with the given {@link Request}.
-   */
-  public abstract boolean canHandleRequest(Request data);
 
   /**
    * Loads an image for the given {@link Request}.

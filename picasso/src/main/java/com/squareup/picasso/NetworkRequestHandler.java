@@ -42,17 +42,20 @@ class NetworkRequestHandler extends RequestHandler {
   }
 
   @Override public Result load(Request request, int networkPolicy) throws IOException {
+    //创建okhttp3的请求，里面根据设置的缓存策略进行了缓存的处理。从sdcard的缓存处理都是通过okhttp来进行了处理，而没有单独进行处理
     okhttp3.Request downloaderRequest = createRequest(request, networkPolicy);
+    //发起请求
     Response response = downloader.load(downloaderRequest);
     ResponseBody body = response.body();
 
-    if (!response.isSuccessful()) {
+    if (!response.isSuccessful()) {//加载失败
       body.close();
       throw new ResponseException(response.code(), request.networkPolicy);
     }
 
     // Cache response is only null when the response comes fully from the network. Both completely
     // cached and conditionally cached responses will have a non-null cache response.
+    //因为支持okhttp缓存模式，所以这里根据是否命中了缓存，来进行Result相关参数的设置
     Picasso.LoadedFrom loadedFrom = response.cacheResponse() == null ? NETWORK : DISK;
 
     // Sometimes response content length is zero when requests are being replayed. Haven't found
@@ -78,18 +81,27 @@ class NetworkRequestHandler extends RequestHandler {
   @Override boolean supportsReplay() {
     return true;
   }
-
+  /**
+   * Return the stable ID for the item at <code>position</code>. If {@link #hasStableIds()}
+   * would return false this method should return {@link #NO_ID}. The default implementation
+   * of this method returns {@link #NO_ID}.
+   *
+   * @param position Adapter position to query
+   * @return the stable ID of the item at position
+   */
   private static okhttp3.Request createRequest(Request request, int networkPolicy) {
     CacheControl cacheControl = null;
-    if (networkPolicy != 0) {
+    if (networkPolicy != 0) {//使用CacheControl来进行缓存处理
       if (NetworkPolicy.isOfflineOnly(networkPolicy)) {
         cacheControl = CacheControl.FORCE_CACHE;
       } else {
         CacheControl.Builder builder = new CacheControl.Builder();
         if (!NetworkPolicy.shouldReadFromDiskCache(networkPolicy)) {
+          //如果设置不读缓存，则直接设置非缓存
           builder.noCache();
         }
         if (!NetworkPolicy.shouldWriteToDiskCache(networkPolicy)) {
+          //使用存储缓存
           builder.noStore();
         }
         cacheControl = builder.build();

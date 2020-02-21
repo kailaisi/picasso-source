@@ -84,6 +84,7 @@ class PicassoExecutorService extends ThreadPoolExecutor {
   @Override
   public Future<?> submit(Runnable task) {
     PicassoFutureTask ftask = new PicassoFutureTask((BitmapHunter) task);
+    //execute调用ftask的run方法，也就是传入的task(BitmapHunter)的run方法
     execute(ftask);
     return ftask;
   }

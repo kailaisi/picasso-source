@@ -77,6 +77,7 @@ public class RequestCreator {
           "Picasso instance already shut down. Cannot submit new requests.");
     }
     this.picasso = picasso;
+    //创建了Request.Builder
     this.data = new Request.Builder(uri, resourceId, picasso.defaultBitmapConfig);
   }
 
@@ -529,7 +530,7 @@ public class RequestCreator {
    */
   public void into(@NonNull Target target) {
     long started = System.nanoTime();
-    checkMain();
+    checkMain();//需要在主线程发起请求
 
     if (target == null) {
       throw new IllegalArgumentException("Target must not be null.");
@@ -676,42 +677,45 @@ public class RequestCreator {
    */
   public void into(ImageView target, Callback callback) {
     long started = System.nanoTime();
-    checkMain();
+    checkMain();//需要在主线程发起请求
 
     if (target == null) {
       throw new IllegalArgumentException("Target must not be null.");
     }
 
-    if (!data.hasImage()) {
+    if (!data.hasImage()) {//判断uri和source都为空，说明没有设置load(),直接调用取消请求
       picasso.cancelRequest(target);
       if (setPlaceholder) {
         setPlaceholder(target, getPlaceholderDrawable());
       }
       return;
     }
-
+    //当设置了fit()时，deferred为true,也就是完全填充
     if (deferred) {
-      if (data.hasSize()) {
+      if (data.hasSize()) {//如果已经有宽高了，则表示同事使用了fit()和resize(),两个不能同时使用
         throw new IllegalStateException("Fit cannot be used with resize.");
       }
       int width = target.getWidth();
       int height = target.getHeight();
-      if (width == 0 || height == 0) {
+      if (width == 0 || height == 0) {//如果还没有绘制完成，宽高都是空，放置Placeholder
         if (setPlaceholder) {
           setPlaceholder(target, getPlaceholderDrawable());
         }
         picasso.defer(target, new DeferredRequestCreator(this, target, callback));
         return;
       }
+      //设置目标要填充的大小，在下载完成以后会根据这个大小来进行图片的处理
       data.resize(width, height);
     }
-
+    //创建加载请求
     Request request = createRequest(started);
+    //根据请求信息request创建key值,key值是个String类型，里面包含了uri，大小，填充方式等的拼接
     String requestKey = createKey(request);
-
+    //根据用户设置的混村策略来进行处理，如果设置了缓存，则先从缓存查找
     if (shouldReadFromMemoryCache(memoryPolicy)) {
+      //从Picasso的缓存（默认设置的是Lru缓存）中，根据key值来进行查询。
       Bitmap bitmap = picasso.quickMemoryCacheCheck(requestKey);
-      if (bitmap != null) {
+      if (bitmap != null) {//查找成功，取消请求，然后设置bitmap，然后回调成功
         picasso.cancelRequest(target);
         setBitmap(target, picasso.context, bitmap, MEMORY, noFade, picasso.indicatorsEnabled);
         if (picasso.loggingEnabled) {
@@ -723,15 +727,15 @@ public class RequestCreator {
         return;
       }
     }
-
+    //如果设置了默认显示的图片，则先显示出来
     if (setPlaceholder) {
       setPlaceholder(target, getPlaceholderDrawable());
     }
-
+    //根据本次请求的相关处理器。里面封装了相关的target,request,网络策略,缓存策略等
     Action action =
         new ImageViewAction(picasso, target, request, memoryPolicy, networkPolicy, errorResId,
             errorDrawable, requestKey, tag, callback, noFade);
-
+    //入队并提交请求的处理
     picasso.enqueueAndSubmit(action);
   }
 
@@ -752,10 +756,11 @@ public class RequestCreator {
   }
 
   /** Create the request optionally passing it through the request transformer. */
+  //创建请求
   private Request createRequest(long started) {
+    //线程安全的获取Id方法。
     int id = nextId.getAndIncrement();
-
-    Request request = data.build();
+    Request request = data.build();//创建请求信息
     request.id = id;
     request.started = started;
 
@@ -763,7 +768,7 @@ public class RequestCreator {
     if (loggingEnabled) {
       log(OWNER_MAIN, VERB_CREATED, request.plainId(), request.toString());
     }
-
+    //对请求进行封装变换处理
     Request transformed = picasso.transformRequest(request);
     if (transformed != request) {
       // If the request was changed, copy over the id and timestamp from the original.

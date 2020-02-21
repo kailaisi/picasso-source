@@ -176,7 +176,10 @@ class Dispatcher {
     performSubmit(action, true);
   }
 
+  //执行提交
   void performSubmit(Action action, boolean dismissFailed) {
+    //如果Picasso下发了暂停指令，那么将当前的action保存起来。从弱引用移到强引用pausedActions中
+    //有一种使用场景，就是我们在Recyclerview或者listview滑动的时候，暂停对于图片的加载
     if (pausedTags.contains(action.getTag())) {
       pausedActions.put(action.getTarget(), action);
       if (action.getPicasso().loggingEnabled) {
@@ -185,7 +188,8 @@ class Dispatcher {
       }
       return;
     }
-
+    //hunterMap中保存着还未执行的下载请求。是按照key来进行分类的。如果多个地方加载的是同一个uri和相关配置
+    //那么会将多个action保存在同一个BitmapHunter中，然后在加载完成该，根据BitmapHunter的actions来进行分发显示处理
     BitmapHunter hunter = hunterMap.get(action.getKey());
     if (hunter != null) {
       hunter.attach(action);
@@ -198,9 +202,11 @@ class Dispatcher {
       }
       return;
     }
-
+    //根据相关的请求参数，查找到具体的请求处理器，然后生成一个BitmapHunter对象
     hunter = forRequest(action.getPicasso(), this, cache, stats, action);
+    //通过线程池执行请求，然后将future赋值给hunter的future属性
     hunter.future = service.submit(hunter);
+    //保存到hunterMap中
     hunterMap.put(action.getKey(), hunter);
     if (dismissFailed) {
       failedActions.remove(action.getTarget());
@@ -351,11 +357,15 @@ class Dispatcher {
     }
   }
 
+  //数据加载完成之后进行的处理操作
   void performComplete(BitmapHunter hunter) {
+    //如果设置了内存缓存，则将数据写入到缓存
     if (shouldWriteToMemoryCache(hunter.getMemoryPolicy())) {
       cache.set(hunter.getKey(), hunter.getResult());
     }
+    //从还未执行完毕的列表中移除
     hunterMap.remove(hunter.getKey());
+    //批量处理
     batch(hunter);
     if (hunter.getPicasso().loggingEnabled) {
       log(OWNER_DISPATCHER, VERB_BATCHED, getLogIdsForHunter(hunter), "for completion");
@@ -365,7 +375,9 @@ class Dispatcher {
   void performBatchComplete() {
     List<BitmapHunter> copy = new ArrayList<>(batch);
     batch.clear();
+    //向主线程的Handler发送一个批量处理完成的消息，
     mainThreadHandler.sendMessage(mainThreadHandler.obtainMessage(HUNTER_BATCH_COMPLETE, copy));
+    //批量打印日志信息
     logBatch(copy);
   }
 
@@ -436,7 +448,9 @@ class Dispatcher {
     if (hunter.result != null) {
       hunter.result.prepareToDraw();
     }
+    //将BitmapHunter放到batch变量中
     batch.add(hunter);
+    //延迟200ms处理。能够将200ms内的所有请求的hunter结果进行一个批量的操作。
     if (!handler.hasMessages(HUNTER_DELAY_NEXT_BATCH)) {
       handler.sendEmptyMessageDelayed(HUNTER_DELAY_NEXT_BATCH, BATCH_DELAY);
     }
